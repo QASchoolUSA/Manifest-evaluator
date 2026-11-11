@@ -9,6 +9,8 @@ export type PriceResult = {
   rockautoUrl: string;
   amazonUrl: string;
   advanceUrl: string;
+  advancePrice: number | null;
+  advanceResolved: boolean;
 };
 
 export type PriceLookupInput = {

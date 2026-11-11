@@ -105,10 +105,19 @@ export function ItemsTable({ items }: Props) {
       {
         accessorKey: "unitRetail",
         header: "Unit retail",
-        cell: ({ getValue }) => (
-          <span className="mono-num">{formatMoney(getValue<number>())}</span>
+        cell: ({ row }) => (
+          <div>
+            <div className="mono-num">
+              {formatMoney(row.original.unitRetail)}
+            </div>
+            {row.original.advancePrice != null && (
+              <div className="mono-num text-[11px] text-muted-foreground">
+                Adv {formatMoney(row.original.advancePrice)}
+              </div>
+            )}
+          </div>
         ),
-        size: 100,
+        size: 110,
       },
       {
         accessorKey: "extRetail",
@@ -184,11 +193,12 @@ export function ItemsTable({ items }: Props) {
         header: "Check",
         cell: ({ row }) => {
           const item = row.original;
-          // Prefer a resolved Advance product page; otherwise their live search.
-          const advanceHref =
-            item.advanceUrl && item.advanceUrl.includes("/p/")
-              ? item.advanceUrl
-              : advanceSearchUrl(item.partNumber);
+          const resolved =
+            Boolean(item.advanceResolved) ||
+            Boolean(item.advanceUrl?.includes("/p/"));
+          const advanceHref = resolved
+            ? (item.advanceUrl ?? advanceSearchUrl(item.partNumber))
+            : advanceSearchUrl(item.partNumber);
           const ebayHref = ebaySearchUrl(
             item.brand,
             item.partNumber,
@@ -207,8 +217,14 @@ export function ItemsTable({ items }: Props) {
                 href={advanceHref}
                 target="_blank"
                 rel="noreferrer"
+                title={
+                  resolved
+                    ? "Advance Auto product page"
+                    : "Advance Auto search (product page not resolved yet)"
+                }
               >
-                Advance <ExternalLink className="size-3" />
+                {resolved ? "Advance" : "Advance search"}{" "}
+                <ExternalLink className="size-3" />
               </a>
               <a
                 className="inline-flex items-center gap-1 text-primary hover:underline"
@@ -237,7 +253,7 @@ export function ItemsTable({ items }: Props) {
             </div>
           );
         },
-        size: 110,
+        size: 120,
       },
     ],
     [],

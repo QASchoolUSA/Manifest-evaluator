@@ -53,6 +53,8 @@ export const items = sqliteTable(
     rockautoUrl: text("rockauto_url"),
     amazonUrl: text("amazon_url"),
     advanceUrl: text("advance_url"),
+    advancePrice: real("advance_price"),
+    advanceResolved: integer("advance_resolved").notNull().default(0),
   },
   (table) => [
     index("items_lot_id_idx").on(table.lotId),
@@ -75,6 +77,8 @@ export const priceCache = sqliteTable("price_cache", {
   rockautoUrl: text("rockauto_url"),
   amazonUrl: text("amazon_url"),
   advanceUrl: text("advance_url"),
+  advancePrice: real("advance_price"),
+  advanceResolved: integer("advance_resolved").notNull().default(0),
   fetchedAt: text("fetched_at").notNull(),
   expiresAt: text("expires_at").notNull(),
   rawJson: text("raw_json"),

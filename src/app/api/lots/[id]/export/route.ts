@@ -40,6 +40,8 @@ export async function GET(_req: Request, ctx: Ctx) {
     "Fitment Location",
     "Seller Category",
     "Condition",
+    "Advance Price",
+    "Advance Resolved",
     "Advance URL",
     "eBay URL",
     "RockAuto URL",
@@ -50,6 +52,9 @@ export async function GET(_req: Request, ctx: Ctx) {
   for (const item of rows) {
     const lineMarket =
       item.marketUnitMedian != null ? item.marketUnitMedian * item.qty : "";
+    const advanceResolved =
+      Boolean(item.advanceResolved) ||
+      Boolean(item.advanceUrl?.includes("/p/"));
     lines.push(
       [
         item.itemNumber,
@@ -68,7 +73,9 @@ export async function GET(_req: Request, ctx: Ctx) {
         item.fitmentLocation ?? "",
         item.sellerCategory,
         item.condition,
-        item.advanceUrl && item.advanceUrl.includes("/p/")
+        item.advancePrice ?? "",
+        advanceResolved ? "yes" : "no",
+        advanceResolved && item.advanceUrl
           ? item.advanceUrl
           : advanceSearchUrl(item.partNumber),
         ebaySearchUrl(item.brand, item.partNumber, item.description),

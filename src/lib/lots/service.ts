@@ -121,6 +121,8 @@ export async function importManifest(
       rockautoUrl: rockautoSearchUrl(item.brand, item.partNumber),
       amazonUrl: amazonSearchUrl(item.brand, item.partNumber, item.description),
       advanceUrl: advanceSearchUrl(item.partNumber),
+      advancePrice: null,
+      advanceResolved: 0,
     };
   });
 
@@ -201,6 +203,8 @@ async function applyCacheToLot(lotId: string) {
         amazonUrl: cached.amazonUrl ?? item.amazonUrl,
         advanceUrl:
           cached.advanceUrl ?? item.advanceUrl ?? advanceSearchUrl(item.partNumber),
+        advancePrice: cached.advancePrice ?? item.advancePrice,
+        advanceResolved: cached.advanceResolved ?? item.advanceResolved ?? 0,
       })
       .where(eq(items.id, item.id));
   }
@@ -280,6 +284,10 @@ export async function enrichLot(
               existing.advanceUrl ??
               item.advanceUrl ??
               advanceSearchUrl(item.partNumber),
+            advancePrice: existing.advancePrice ?? item.advancePrice ?? null,
+            advanceResolved: Boolean(
+              existing.advanceResolved ?? item.advanceResolved ?? 0,
+            ),
           }
         : null;
 
@@ -313,6 +321,8 @@ export async function enrichLot(
             rockautoUrl: price.rockautoUrl,
             amazonUrl: price.amazonUrl,
             advanceUrl: price.advanceUrl,
+            advancePrice: price.advancePrice,
+            advanceResolved: price.advanceResolved ? 1 : 0,
             fetchedAt: nowIso(),
             expiresAt: expiresIso(),
             rawJson: null,
@@ -330,6 +340,8 @@ export async function enrichLot(
               rockautoUrl: price.rockautoUrl,
               amazonUrl: price.amazonUrl,
               advanceUrl: price.advanceUrl,
+              advancePrice: price.advancePrice,
+              advanceResolved: price.advanceResolved ? 1 : 0,
               fetchedAt: nowIso(),
               expiresAt: expiresIso(),
             },
@@ -343,24 +355,28 @@ export async function enrichLot(
           );
         continue;
       }
-    } else if (
-      !existing?.advanceUrl ||
-      existing.advanceUrl.includes("/web/SearchResults")
-    ) {
-      // Upgrade cached search links to direct product pages when Advance allows.
+    } else if (!price.advanceResolved) {
+      // Upgrade cached search links to direct product pages + shelf price.
       const advance = await lookupAdvanceProduct({
         partNumber: item.partNumber,
         brand: item.brand,
         vendorPrefix: item.vendorPrefix,
       });
-      if (advance.resolved) {
-        price = { ...price, advanceUrl: advance.url };
+      price = {
+        ...price,
+        advanceUrl: advance.url,
+        advancePrice: advance.price,
+        advanceResolved: advance.resolved,
+      };
+      if (advance.resolved || advance.url) {
         await db
           .update(priceCache)
-          .set({ advanceUrl: advance.url })
+          .set({
+            advanceUrl: advance.url,
+            advancePrice: advance.price,
+            advanceResolved: advance.resolved ? 1 : 0,
+          })
           .where(eq(priceCache.cacheKey, key));
-      } else if (!price.advanceUrl) {
-        price = { ...price, advanceUrl: advance.url };
       }
     }
 
@@ -413,6 +429,8 @@ export async function enrichLot(
         rockautoUrl: price.rockautoUrl,
         amazonUrl: price.amazonUrl,
         advanceUrl: price.advanceUrl,
+        advancePrice: price.advancePrice,
+        advanceResolved: price.advanceResolved ? 1 : 0,
         fitmentSummary: fit.summary,
         fitmentVehiclesJson: JSON.stringify(fit.vehicles),
         fitmentLocation: fit.location,

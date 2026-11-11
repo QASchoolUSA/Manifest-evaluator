@@ -237,13 +237,12 @@ export async function lookupMarketPrice(
   const rockautoUrl = rockautoSearchUrl(input.brand, input.partNumber);
   const amazonUrl = amazonSearchUrl(input.brand, input.partNumber, input.description);
 
-  // Resolve Advance Auto product page when their API allows; else search URL.
+  // Resolve Advance Auto product page + shelf price (capi → Serper → search).
   const advance = await lookupAdvanceProduct({
     partNumber: input.partNumber,
     brand: input.brand,
     vendorPrefix: input.vendorPrefix,
   });
-  const advanceUrl = advance.url;
 
   let chosen: Partial<PriceResult> | null = null;
 
@@ -274,6 +273,8 @@ export async function lookupMarketPrice(
     ebayUrl,
     rockautoUrl,
     amazonUrl,
-    advanceUrl,
+    advanceUrl: advance.url,
+    advancePrice: advance.price,
+    advanceResolved: advance.resolved,
   };
 }

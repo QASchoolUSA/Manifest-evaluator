@@ -69,7 +69,9 @@ async function ensureSchema(client: Client) {
       ebay_url TEXT,
       rockauto_url TEXT,
       amazon_url TEXT,
-      advance_url TEXT
+      advance_url TEXT,
+      advance_price REAL,
+      advance_resolved INTEGER NOT NULL DEFAULT 0
     )`,
       `CREATE INDEX IF NOT EXISTS items_lot_id_idx ON items(lot_id)`,
       `CREATE INDEX IF NOT EXISTS items_item_number_idx ON items(item_number)`,
@@ -88,6 +90,8 @@ async function ensureSchema(client: Client) {
       rockauto_url TEXT,
       amazon_url TEXT,
       advance_url TEXT,
+      advance_price REAL,
+      advance_resolved INTEGER NOT NULL DEFAULT 0,
       fetched_at TEXT NOT NULL,
       expires_at TEXT NOT NULL,
       raw_json TEXT
@@ -108,10 +112,14 @@ async function ensureSchema(client: Client) {
     "write",
   );
 
-  // Soft-migrate existing DBs created before advance_url existed.
+  // Soft-migrate existing DBs created before newer Advance columns existed.
   for (const stmt of [
     `ALTER TABLE items ADD COLUMN advance_url TEXT`,
+    `ALTER TABLE items ADD COLUMN advance_price REAL`,
+    `ALTER TABLE items ADD COLUMN advance_resolved INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE price_cache ADD COLUMN advance_url TEXT`,
+    `ALTER TABLE price_cache ADD COLUMN advance_price REAL`,
+    `ALTER TABLE price_cache ADD COLUMN advance_resolved INTEGER NOT NULL DEFAULT 0`,
   ]) {
     try {
       await client.execute(stmt);

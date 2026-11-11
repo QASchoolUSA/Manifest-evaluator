@@ -1,6 +1,6 @@
 # Manifest Evaluator
 
-Public web app to import Advance Auto **B-Stock CSV manifests** as **separate lots**, inspect products and vehicle fitment, and estimate real market value (eBay sold → RockAuto → Amazon, with retail heuristics as fallback). Each SKU links to Advance Auto search (or a direct product page when resolvable), plus cleaned eBay / RockAuto / Amazon checks.
+Public web app to import Advance Auto **B-Stock CSV manifests** as **separate lots**, inspect products and vehicle fitment, and estimate real market value (eBay sold → RockAuto → Amazon, with retail heuristics as fallback). Enrich resolves Advance Auto **product pages** + shelf prices via Advance’s API when reachable, otherwise Serper Google search (`site:shop.advanceautoparts.com/p …`).
 
 **No login.** Anyone can open the site, see previously uploaded lots, and open each lot for the full evaluation. Uploads are shared and visible to everyone.
 
@@ -30,6 +30,7 @@ Without Turso env vars, the app uses a local libSQL file at `data/manifest-evalu
    - `TURSO_DATABASE_URL` = `libsql://…`
    - `TURSO_AUTH_TOKEN` = your token
    - `EBAY_APP_ID` (recommended) — sold comps via Finding API; free-tier limits fall back to HTML/RockAuto/Amazon/heuristic
+   - `SERPER_API_KEY` (recommended) — resolves real Advance Auto `/p/` product URLs + shelf prices (free tier at [serper.dev](https://serper.dev))
 
 4. Deploy. Schema tables are created automatically on first request.
 5. Open the site — load samples or upload manifests. Lots persist in Turso and are public.
