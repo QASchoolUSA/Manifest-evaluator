@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #eef2f6;
+  --bg-elevated: #ffffff;
+  --ink: #0f1b2d;
+  --ink-muted: #5b6b7c;
+  --line: #d5dee8;
+  --accent: #0f766e;
+  --accent-soft: #ccfbf1;
+  --warn: #b45309;
+  --good: #047857;
+  --bad: #b91c1c;
+  --steel: #1e293b;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --color-elevated: var(--bg-elevated);
+  --color-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-warn: var(--warn);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-steel: var(--steel);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #d8f3ef 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #dbe7f5 0%, transparent 50%),
+    linear-gradient(180deg, #f5f8fb 0%, var(--bg) 40%, #e8eef4 100%);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+.grid-overlay {
+  background-image:
+    linear-gradient(to right, rgba(15, 27, 45, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 27, 45, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.surface {
+  background: color-mix(in srgb, white 88%, transparent);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+}
+
+.mono-num {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
