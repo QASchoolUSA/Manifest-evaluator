@@ -1,6 +1,9 @@
 import type { PriceLookupInput, PriceResult } from "./types";
 import { amazonSearchUrl, ebaySearchUrl, rockautoSearchUrl } from "./urls";
 
+/** Skip eBay API until this time when free-tier limits trip. */
+let ebayApiCooldownUntil = 0;
+
 function median(nums: number[]): number | null {
   if (!nums.length) return null;
   const sorted = [...nums].sort((a, b) => a - b);
@@ -21,7 +24,16 @@ function parsePricesFromText(text: string): number[] {
   return prices;
 }
 
-async function fetchText(url: string, timeoutMs = 8000): Promise<string | null> {
+type FetchResult = {
+  ok: boolean;
+  status: number;
+  text: string | null;
+};
+
+async function fetchResponse(
+  url: string,
+  timeoutMs = 8000,
+): Promise<FetchResult> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -35,16 +47,57 @@ async function fetchText(url: string, timeoutMs = 8000): Promise<string | null> 
       cache: "no-store",
     });
     clearTimeout(timer);
-    if (!res.ok) return null;
-    return await res.text();
+    const text = await res.text().catch(() => null);
+    return { ok: res.ok, status: res.status, text };
   } catch {
-    return null;
+    return { ok: false, status: 0, text: null };
   }
 }
 
-async function lookupEbayApi(input: PriceLookupInput): Promise<Partial<PriceResult> | null> {
+async function fetchText(url: string, timeoutMs = 8000): Promise<string | null> {
+  const res = await fetchResponse(url, timeoutMs);
+  return res.ok ? res.text : null;
+}
+
+function isEbayRateLimited(status: number, body: string | null): boolean {
+  if (status === 429 || status === 503) return true;
+  if (!body) return false;
+  const lower = body.toLowerCase();
+  if (
+    lower.includes("rate limit") ||
+    lower.includes("exceeded the number of times") ||
+    lower.includes("call limit") ||
+    lower.includes("usage limit") ||
+    lower.includes("too many requests")
+  ) {
+    return true;
+  }
+  // Common Finding API error ids for throttle / auth quota issues
+  if (
+    /"errorid"\s*:\s*\["?(10001|21829|21916284|21919188)"?\]/i.test(body) ||
+    /errorId["\s:>]+(10001|21829|21916284)/i.test(body)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function tripEbayCooldown(minutes = 10) {
+  ebayApiCooldownUntil = Date.now() + minutes * 60_000;
+}
+
+function ebayApiAvailable(): boolean {
+  return Boolean(process.env.EBAY_APP_ID) && Date.now() >= ebayApiCooldownUntil;
+}
+
+type LookupOutcome =
+  | { kind: "hit"; result: Partial<PriceResult> }
+  | { kind: "miss" }
+  | { kind: "rate_limited" };
+
+async function lookupEbayApi(input: PriceLookupInput): Promise<LookupOutcome> {
   const appId = process.env.EBAY_APP_ID;
-  if (!appId) return null;
+  if (!appId || Date.now() < ebayApiCooldownUntil) return { kind: "miss" };
 
   const keywords = `${input.brand} ${input.partNumber}`.trim();
   const endpoint =
@@ -59,29 +112,47 @@ async function lookupEbayApi(input: PriceLookupInput): Promise<Partial<PriceResu
     `&itemFilter(0).value=true` +
     `&paginationInput.entriesPerPage=20`;
 
-  const text = await fetchText(endpoint, 10000);
-  if (!text) return null;
+  const res = await fetchResponse(endpoint, 10000);
+  if (isEbayRateLimited(res.status, res.text)) {
+    tripEbayCooldown(10);
+    return { kind: "rate_limited" };
+  }
+  if (!res.ok || !res.text) return { kind: "miss" };
 
   try {
-    const json = JSON.parse(text);
-    const result = json?.findCompletedItemsResponse?.[0]?.searchResult?.[0];
+    const json = JSON.parse(res.text);
+    const response = json?.findCompletedItemsResponse?.[0];
+    const ack = String(response?.ack?.[0] ?? "").toLowerCase();
+    const errorBody = JSON.stringify(response?.errorMessage ?? response?.error ?? "");
+    if (ack === "failure" || ack === "partialfailure") {
+      if (isEbayRateLimited(res.status, errorBody || res.text)) {
+        tripEbayCooldown(10);
+        return { kind: "rate_limited" };
+      }
+      return { kind: "miss" };
+    }
+
+    const result = response?.searchResult?.[0];
     const items = result?.item ?? [];
     const prices: number[] = [];
     for (const item of items) {
       const price = Number(item?.sellingStatus?.[0]?.currentPrice?.[0]?.__value__);
       if (Number.isFinite(price) && price > 0) prices.push(price);
     }
-    if (!prices.length) return null;
+    if (!prices.length) return { kind: "miss" };
     return {
-      low: Math.min(...prices),
-      median: median(prices),
-      high: Math.max(...prices),
-      samples: prices.length,
-      source: "ebay_sold",
-      url: ebaySearchUrl(input.brand, input.partNumber, input.description),
+      kind: "hit",
+      result: {
+        low: Math.min(...prices),
+        median: median(prices),
+        high: Math.max(...prices),
+        samples: prices.length,
+        source: "ebay_sold",
+        url: ebaySearchUrl(input.brand, input.partNumber, input.description),
+      },
     };
   } catch {
-    return null;
+    return { kind: "miss" };
   }
 }
 
@@ -153,6 +224,10 @@ function retailHeuristic(input: PriceLookupInput, unitRetail: number): Partial<P
   };
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function lookupMarketPrice(
   input: PriceLookupInput,
   unitRetail = 0,
@@ -161,16 +236,24 @@ export async function lookupMarketPrice(
   const rockautoUrl = rockautoSearchUrl(input.brand, input.partNumber);
   const amazonUrl = amazonSearchUrl(input.brand, input.partNumber, input.description);
 
-  const ebayApi = await lookupEbayApi(input);
-  const ebayHtml = ebayApi ? null : await lookupEbayHtml(input);
-  const rock = ebayApi || ebayHtml ? null : await lookupRockAuto(input);
-  const amazon = ebayApi || ebayHtml || rock ? null : await lookupAmazon(input);
-  const heuristic =
-    ebayApi || ebayHtml || rock || amazon
-      ? null
-      : retailHeuristic(input, unitRetail);
+  let chosen: Partial<PriceResult> | null = null;
 
-  const chosen = ebayApi ?? ebayHtml ?? rock ?? amazon ?? heuristic;
+  // 1) eBay Finding API (sold) when App ID is present and not in cooldown
+  if (ebayApiAvailable()) {
+    const ebayApi = await lookupEbayApi(input);
+    if (ebayApi.kind === "hit") {
+      chosen = ebayApi.result;
+      // Soft throttle free-tier: brief pause before next SKU can call again
+      await sleep(250);
+    }
+    // rate_limited or miss → fall through to local fallbacks
+  }
+
+  // 2–5) Existing project fallbacks when API is missing, empty, or rate-limited
+  if (!chosen) chosen = await lookupEbayHtml(input);
+  if (!chosen) chosen = await lookupRockAuto(input);
+  if (!chosen) chosen = await lookupAmazon(input);
+  if (!chosen) chosen = retailHeuristic(input, unitRetail);
 
   return {
     low: chosen?.low ?? null,

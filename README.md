@@ -29,7 +29,7 @@ Without Turso env vars, the app uses a local libSQL file at `data/manifest-evalu
 
    - `TURSO_DATABASE_URL` = `libsql://…`
    - `TURSO_AUTH_TOKEN` = your token
-   - Optional: `EBAY_APP_ID`
+   - `EBAY_APP_ID` (recommended) — sold comps via Finding API; free-tier limits fall back to HTML/RockAuto/Amazon/heuristic
 
 4. Deploy. Schema tables are created automatically on first request.
 5. Open the site — load samples or upload manifests. Lots persist in Turso and are public.
