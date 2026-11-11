@@ -1,53 +1,67 @@
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import type { LotWithStats } from "@/lib/lots/service";
 import { formatMoney, formatPct } from "@/lib/deal/math";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export function LotCard({ lot }: { lot: LotWithStats }) {
   const coverage =
     lot.itemCount > 0 ? (lot.pricedItemCount / lot.itemCount) * 100 : 0;
 
   return (
-    <Link
-      href={`/lots/${lot.id}`}
-      className="surface group block rounded-2xl p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
-            Separate lot
-          </p>
-          <h3 className="mt-1 font-[family-name:var(--font-display)] text-lg font-semibold leading-snug text-steel line-clamp-2 group-hover:text-accent">
-            {lot.title}
-          </h3>
-          <p className="mt-1 truncate font-mono text-xs text-muted">{lot.lotId}</p>
-        </div>
-        <div className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
-          {formatPct(coverage)} priced
-        </div>
-      </div>
-
-      <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <dt className="text-muted">Lines / Qty</dt>
-          <dd className="mono-num font-semibold">
-            {lot.itemCount} / {lot.totalQty}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted">Manifest retail</dt>
-          <dd className="mono-num font-semibold">
-            {formatMoney(lot.manifestRetail)}
-          </dd>
-        </div>
-        <div className="col-span-2">
-          <dt className="text-muted">Est. market value</dt>
-          <dd className="mono-num text-base font-bold text-accent">
-            {lot.estimatedMarket > 0
-              ? formatMoney(lot.estimatedMarket)
-              : "Pending enrichment"}
-          </dd>
-        </div>
-      </dl>
+    <Link href={`/lots/${lot.id}`} className="group block h-full">
+      <Card className="h-full transition-all hover:ring-foreground/20 group-hover:shadow-sm">
+        <CardHeader className="gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <Badge variant="secondary">Separate lot</Badge>
+            <Badge variant={coverage > 0 ? "default" : "outline"}>
+              {formatPct(coverage)} priced
+            </Badge>
+          </div>
+          <div>
+            <CardTitle className="line-clamp-2 text-base leading-snug group-hover:text-primary">
+              {lot.title}
+            </CardTitle>
+            <CardDescription className="mt-1 truncate font-mono text-xs">
+              {lot.lotId}
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-muted-foreground">Lines / Qty</p>
+              <p className="mono-num font-medium">
+                {lot.itemCount} / {lot.totalQty}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Manifest retail</p>
+              <p className="mono-num font-medium">
+                {formatMoney(lot.manifestRetail)}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-3 rounded-lg bg-muted/60 px-3 py-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Est. market value</p>
+              <p className="mono-num text-lg font-semibold text-primary">
+                {lot.estimatedMarket > 0
+                  ? formatMoney(lot.estimatedMarket)
+                  : "Pending enrichment"}
+              </p>
+            </div>
+            <ArrowUpRight className="mb-1 size-4 text-muted-foreground transition group-hover:text-primary" />
+          </div>
+        </CardContent>
+      </Card>
     </Link>
   );
 }

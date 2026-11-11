@@ -4,6 +4,16 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { LotWithStats } from "@/lib/lots/service";
 import { computeDeal, formatMoney, formatPct } from "@/lib/deal/math";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export function CompareClient({ lots }: { lots: LotWithStats[] }) {
   const [selected, setSelected] = useState<string[]>(() =>
@@ -23,93 +33,106 @@ export function CompareClient({ lots }: { lots: LotWithStats[] }) {
 
   if (!lots.length) {
     return (
-      <div className="surface rounded-2xl p-8 text-center text-muted">
-        Import lots first, then compare them here.{" "}
-        <Link href="/" className="text-accent underline">
-          Go to lots
-        </Link>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>No lots to compare</CardTitle>
+          <CardDescription>
+            Import lots first, then compare them here.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/" className={buttonVariants()}>
+            Go to lots
+          </Link>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-5">
-      <div className="surface rounded-2xl p-4">
-        <p className="mb-3 text-sm text-muted">
-          Select lots to compare side-by-side (inventory stays separate).
-        </p>
-        <div className="flex flex-wrap gap-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Select lots</CardTitle>
+          <CardDescription>
+            Side-by-side summary only — each pallet’s inventory stays on its own
+            detail page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
           {lots.map((lot) => {
             const on = selected.includes(lot.id);
             return (
-              <button
+              <Button
                 key={lot.id}
                 type="button"
+                size="sm"
+                variant={on ? "default" : "outline"}
                 onClick={() => toggle(lot.id)}
-                className={`rounded-full px-3 py-1.5 text-sm transition ${
-                  on
-                    ? "bg-accent text-white"
-                    : "border border-line bg-white text-steel hover:border-accent"
-                }`}
+                className="max-w-xs"
               >
-                {lot.title.length > 42
-                  ? `${lot.title.slice(0, 42)}…`
-                  : lot.title}
-              </button>
+                <span className="truncate">
+                  {lot.title.length > 42
+                    ? `${lot.title.slice(0, 42)}…`
+                    : lot.title}
+                </span>
+              </Button>
             );
           })}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {chosen.length === 0 ? (
-        <p className="text-muted">Select at least one lot.</p>
+        <p className="text-muted-foreground">Select at least one lot.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className="border-b border-line bg-white/80 p-3 text-left text-muted">
-                  Metric
-                </th>
-                {chosen.map((lot) => (
-                  <th
-                    key={lot.id}
-                    className="border-b border-line bg-white/80 p-3 text-left"
-                  >
-                    <Link
-                      href={`/lots/${lot.id}`}
-                      className="font-[family-name:var(--font-display)] font-semibold text-steel hover:text-accent"
-                    >
-                      {lot.title}
-                    </Link>
-                    <div className="mt-1 font-mono text-[11px] font-normal text-muted">
-                      {lot.lotId}
-                    </div>
+        <Card>
+          <CardContent className="overflow-x-auto pt-(--card-spacing)">
+            <table className="w-full min-w-[720px] border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th className="border-b p-3 text-left font-medium text-muted-foreground">
+                    Metric
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows(chosen).map((row) => (
-                <tr key={row.label} className="odd:bg-white/50">
-                  <td className="border-b border-line/70 p-3 text-muted">
-                    {row.label}
-                  </td>
-                  {row.values.map((v, i) => (
-                    <td
-                      key={`${row.label}-${i}`}
-                      className={`border-b border-line/70 p-3 mono-num font-medium ${
-                        row.accent ? "text-accent" : "text-steel"
-                      }`}
-                    >
-                      {v}
-                    </td>
+                  {chosen.map((lot) => (
+                    <th key={lot.id} className="border-b p-3 text-left align-top">
+                      <Link
+                        href={`/lots/${lot.id}`}
+                        className="font-medium hover:text-primary"
+                      >
+                        {lot.title}
+                      </Link>
+                      <div className="mt-1">
+                        <Badge variant="outline" className="font-mono font-normal">
+                          {lot.lotId}
+                        </Badge>
+                      </div>
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows(chosen).map((row) => (
+                  <tr key={row.label} className="odd:bg-muted/30">
+                    <td className="border-b p-3 text-muted-foreground">
+                      {row.label}
+                    </td>
+                    {row.values.map((v, i) => (
+                      <td
+                        key={`${row.label}-${i}`}
+                        className={cn(
+                          "mono-num border-b p-3 font-medium",
+                          row.accent && "text-primary",
+                        )}
+                      >
+                        {v}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -128,14 +151,8 @@ function rows(lots: LotWithStats[]) {
   );
 
   return [
-    {
-      label: "Lines",
-      values: lots.map((l) => String(l.itemCount)),
-    },
-    {
-      label: "Total qty",
-      values: lots.map((l) => String(l.totalQty)),
-    },
+    { label: "Lines", values: lots.map((l) => String(l.itemCount)) },
+    { label: "Total qty", values: lots.map((l) => String(l.totalQty)) },
     {
       label: "Manifest retail",
       values: lots.map((l) => formatMoney(l.manifestRetail)),
@@ -151,22 +168,13 @@ function rows(lots: LotWithStats[]) {
         formatPct(l.itemCount ? (l.pricedItemCount / l.itemCount) * 100 : 0),
       ),
     },
-    {
-      label: "Saved bid",
-      values: lots.map((l) => formatMoney(l.bidPrice)),
-    },
+    { label: "Saved bid", values: lots.map((l) => formatMoney(l.bidPrice)) },
     {
       label: "Landed cost",
       values: deals.map((d) => formatMoney(d.landedCost)),
     },
-    {
-      label: "Est. profit",
-      values: deals.map((d) => formatMoney(d.profit)),
-    },
-    {
-      label: "ROI",
-      values: deals.map((d) => formatPct(d.roiPct)),
-    },
+    { label: "Est. profit", values: deals.map((d) => formatMoney(d.profit)) },
+    { label: "ROI", values: deals.map((d) => formatPct(d.roiPct)) },
     {
       label: "Break-even bid",
       values: deals.map((d) => formatMoney(d.breakEvenBid)),

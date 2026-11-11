@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Download, Loader2, StopCircle } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function EnrichControls({
   lotId,
@@ -43,8 +48,11 @@ export function EnrichControls({
         router.refresh();
         if (result.enriched === 0) break;
       }
+      if (!stopRef.current) toast.success("Pricing pass complete");
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : "Enrichment failed");
+      const message = err instanceof Error ? err.message : "Enrichment failed";
+      setStatus(message);
+      toast.error(message);
     } finally {
       setRunning(false);
       router.refresh();
@@ -59,36 +67,35 @@ export function EnrichControls({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        disabled={running || pendingCount === 0}
-        onClick={start}
-        className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
-      >
+      <Button disabled={running || pendingCount === 0} onClick={start}>
+        {running ? <Loader2 className="size-4 animate-spin" /> : null}
         {running
           ? "Enriching…"
           : pendingCount > 0
             ? `Price ${pendingCount} SKUs`
             : "Fully priced"}
-      </button>
+      </Button>
       {running && (
-        <button
-          type="button"
+        <Button
+          variant="outline"
           onClick={() => {
             stopRef.current = true;
           }}
-          className="rounded-xl border border-line bg-white px-3 py-2 text-sm"
         >
+          <StopCircle className="size-4" />
           Stop
-        </button>
+        </Button>
       )}
       <a
         href={`/api/lots/${lotId}/export`}
-        className="rounded-xl border border-line bg-white px-3 py-2 text-sm font-medium hover:border-accent"
+        className={cn(buttonVariants({ variant: "outline" }))}
       >
-        Export enriched CSV
+        <Download className="size-4" />
+        Export CSV
       </a>
-      {status && <span className="text-sm text-muted">{status}</span>}
+      {status && (
+        <span className="text-sm text-muted-foreground">{status}</span>
+      )}
     </div>
   );
 }

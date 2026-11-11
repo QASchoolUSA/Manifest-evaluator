@@ -11,12 +11,20 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { ExternalLink, Search } from "lucide-react";
 import type { Item } from "@/lib/db/schema";
 import { formatMoney } from "@/lib/deal/math";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
-type Props = {
-  items: Item[];
-};
+type Props = { items: Item[] };
 
 export function ItemsTable({ items }: Props) {
   const [sorting, setSorting] = useState<SortingState>([
@@ -61,7 +69,7 @@ export function ItemsTable({ items }: Props) {
             <div className="font-mono text-xs font-medium">
               {row.original.itemNumber}
             </div>
-            <div className="text-xs text-muted">{row.original.brand}</div>
+            <div className="text-xs text-muted-foreground">{row.original.brand}</div>
           </div>
         ),
         size: 140,
@@ -72,12 +80,13 @@ export function ItemsTable({ items }: Props) {
         cell: ({ row }) => (
           <div className="min-w-0">
             <div className="truncate font-medium">{row.original.description}</div>
-            <div className="truncate text-xs text-muted">
-              {row.original.sellerCategory} · {row.original.condition}
+            <div className="mt-1 flex flex-wrap gap-1">
+              <Badge variant="outline">{row.original.sellerCategory}</Badge>
+              <Badge variant="secondary">{row.original.condition}</Badge>
             </div>
           </div>
         ),
-        size: 260,
+        size: 280,
       },
       {
         accessorKey: "qty",
@@ -110,17 +119,23 @@ export function ItemsTable({ items }: Props) {
         cell: ({ row }) => {
           const item = row.original;
           if (item.marketUnitMedian == null) {
-            return <span className="text-xs text-muted">{item.priceStatus}</span>;
+            return (
+              <Badge variant="outline" className="capitalize">
+                {item.priceStatus}
+              </Badge>
+            );
           }
           return (
             <div>
-              <div className="mono-num font-semibold text-accent">
+              <div className="mono-num font-semibold text-primary">
                 {formatMoney(item.marketUnitMedian)}
               </div>
-              <div className="mono-num text-[11px] text-muted">
+              <div className="mono-num text-[11px] text-muted-foreground">
                 {formatMoney(item.marketUnitLow)}–{formatMoney(item.marketUnitHigh)}
               </div>
-              <div className="text-[11px] text-muted">{item.marketSource}</div>
+              <div className="text-[11px] text-muted-foreground">
+                {item.marketSource}
+              </div>
             </div>
           );
         },
@@ -133,7 +148,7 @@ export function ItemsTable({ items }: Props) {
         header: "Line market",
         cell: ({ row }) => {
           const m = row.original.marketUnitMedian;
-          if (m == null) return <span className="text-muted">—</span>;
+          if (m == null) return <span className="text-muted-foreground">—</span>;
           return (
             <span className="mono-num font-semibold">
               {formatMoney(m * row.original.qty)}
@@ -150,7 +165,9 @@ export function ItemsTable({ items }: Props) {
           <div className="text-xs leading-snug">
             <div>{row.original.fitmentSummary}</div>
             {row.original.fitmentLocation && (
-              <div className="mt-0.5 text-muted">{row.original.fitmentLocation}</div>
+              <div className="mt-0.5 text-muted-foreground">
+                {row.original.fitmentLocation}
+              </div>
             )}
           </div>
         ),
@@ -163,37 +180,37 @@ export function ItemsTable({ items }: Props) {
           <div className="flex flex-col gap-1 text-xs">
             {row.original.ebayUrl && (
               <a
-                className="text-accent hover:underline"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
                 href={row.original.ebayUrl}
                 target="_blank"
                 rel="noreferrer"
               >
-                eBay sold
+                eBay <ExternalLink className="size-3" />
               </a>
             )}
             {row.original.rockautoUrl && (
               <a
-                className="text-accent hover:underline"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
                 href={row.original.rockautoUrl}
                 target="_blank"
                 rel="noreferrer"
               >
-                RockAuto
+                RockAuto <ExternalLink className="size-3" />
               </a>
             )}
             {row.original.amazonUrl && (
               <a
-                className="text-accent hover:underline"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
                 href={row.original.amazonUrl}
                 target="_blank"
                 rel="noreferrer"
               >
-                Amazon
+                Amazon <ExternalLink className="size-3" />
               </a>
             )}
           </div>
         ),
-        size: 90,
+        size: 100,
       },
     ],
     [],
@@ -227,145 +244,139 @@ export function ItemsTable({ items }: Props) {
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 72,
+    estimateSize: () => 84,
     overscan: 12,
   });
 
   return (
-    <section className="surface rounded-2xl p-4 sm:p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-steel">
-            Products in this lot
-          </h2>
-          <p className="text-sm text-muted">
-            Showing {rows.length} of {items.length} lines
-          </p>
+    <Card>
+      <CardHeader className="gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <CardTitle>Products in this lot</CardTitle>
+            <CardDescription>
+              Showing {rows.length} of {items.length} lines
+            </CardDescription>
+          </div>
+          <div className="relative w-full max-w-xs">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              placeholder="Search SKU, brand, car…"
+              className="pl-8"
+            />
+          </div>
         </div>
-        <input
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          placeholder="Search SKU, brand, car…"
-          className="w-full max-w-xs rounded-lg border border-line bg-white px-3 py-2 text-sm sm:w-64"
-        />
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Select
-          label="Category"
-          value={category}
-          onChange={setCategory}
-          options={[["all", "All categories"], ...categories.map((c) => [c, c])]}
-        />
-        <Select
-          label="Brand"
-          value={brand}
-          onChange={setBrand}
-          options={[["all", "All brands"], ...brands.map((b) => [b, b])]}
-        />
-        <Select
-          label="Price"
-          value={priceFilter}
-          onChange={setPriceFilter}
-          options={[
-            ["all", "All price states"],
-            ["priced", "Priced"],
-            ["pending", "Pending / missing"],
-          ]}
-        />
-        <Select
-          label="Fitment"
-          value={fitmentFilter}
-          onChange={setFitmentFilter}
-          options={[
-            ["all", "All fitment"],
-            ["vehicle", "Vehicle parts"],
-            ["has", "Known vehicles"],
-            ["na", "Consumables only"],
-          ]}
-        />
-      </div>
-
-      <div
-        ref={parentRef}
-        className="mt-4 h-[min(70vh,720px)] overflow-auto rounded-xl border border-line bg-white"
-      >
-        <div className="sticky top-0 z-10 grid grid-cols-[140px_minmax(200px,1.4fr)_60px_100px_100px_120px_110px_minmax(180px,1.2fr)_90px] gap-2 border-b border-line bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted min-w-[1100px]">
-          {table.getHeaderGroups().map((hg) =>
-            hg.headers.map((header) => (
-              <button
-                key={header.id}
-                type="button"
-                className="text-left hover:text-accent"
-                onClick={header.column.getToggleSortingHandler()}
-              >
-                {flexRender(header.column.columnDef.header, header.getContext())}
-                {{
-                  asc: " ↑",
-                  desc: " ↓",
-                }[header.column.getIsSorted() as string] ?? null}
-              </button>
-            )),
-          )}
+        <div className="flex flex-wrap gap-2">
+          <FilterSelect
+            value={category}
+            onChange={setCategory}
+            options={[["all", "All categories"], ...categories.map((c) => [c, c])]}
+          />
+          <FilterSelect
+            value={brand}
+            onChange={setBrand}
+            options={[["all", "All brands"], ...brands.map((b) => [b, b])]}
+          />
+          <FilterSelect
+            value={priceFilter}
+            onChange={setPriceFilter}
+            options={[
+              ["all", "All price states"],
+              ["priced", "Priced"],
+              ["pending", "Pending / missing"],
+            ]}
+          />
+          <FilterSelect
+            value={fitmentFilter}
+            onChange={setFitmentFilter}
+            options={[
+              ["all", "All fitment"],
+              ["vehicle", "Vehicle parts"],
+              ["has", "Known vehicles"],
+              ["na", "Consumables only"],
+            ]}
+          />
         </div>
-
+      </CardHeader>
+      <CardContent>
         <div
-          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
-          className="min-w-[1100px]"
+          ref={parentRef}
+          className="h-[min(70vh,720px)] overflow-auto rounded-xl border bg-card"
         >
-          {virtualizer.getVirtualItems().map((virtualRow) => {
-            const row = rows[virtualRow.index];
-            return (
-              <div
-                key={row.id}
-                className="absolute left-0 top-0 grid w-full grid-cols-[140px_minmax(200px,1.4fr)_60px_100px_100px_120px_110px_minmax(180px,1.2fr)_90px] gap-2 border-b border-line/70 px-3 py-2 text-sm hover:bg-accent-soft/40"
-                style={{
-                  height: virtualRow.size,
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <div key={cell.id} className="overflow-hidden">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
+          <div className="sticky top-0 z-10 grid min-w-[1100px] grid-cols-[140px_minmax(200px,1.5fr)_60px_100px_100px_120px_110px_minmax(180px,1.2fr)_100px] gap-2 border-b bg-muted/80 px-3 py-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase backdrop-blur">
+            {table.getHeaderGroups().map((hg) =>
+              hg.headers.map((header) => (
+                <button
+                  key={header.id}
+                  type="button"
+                  className="text-left hover:text-foreground"
+                  onClick={header.column.getToggleSortingHandler()}
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                  {{
+                    asc: " ↑",
+                    desc: " ↓",
+                  }[header.column.getIsSorted() as string] ?? null}
+                </button>
+              )),
+            )}
+          </div>
+
+          <div
+            style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+            className="min-w-[1100px]"
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              return (
+                <div
+                  key={row.id}
+                  className="absolute top-0 left-0 grid w-full grid-cols-[140px_minmax(200px,1.5fr)_60px_100px_100px_120px_110px_minmax(180px,1.2fr)_100px] gap-2 border-b px-3 py-2 text-sm hover:bg-muted/40"
+                  style={{
+                    height: virtualRow.size,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <div key={cell.id} className="overflow-hidden">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }
 
-function Select({
-  label,
+function FilterSelect({
   value,
   onChange,
   options,
 }: {
-  label: string;
   value: string;
   onChange: (v: string) => void;
   options: (string | string[])[];
 }) {
   return (
-    <label className="text-xs text-muted">
-      <span className="sr-only">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-lg border border-line bg-white px-2.5 py-2 text-sm text-steel"
-      >
-        {options.map((opt) => {
-          const [v, t] = Array.isArray(opt) ? opt : [opt, opt];
-          return (
-            <option key={v} value={v}>
-              {t}
-            </option>
-          );
-        })}
-      </select>
-    </label>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      {options.map((opt) => {
+        const [v, t] = Array.isArray(opt) ? opt : [opt, opt];
+        return (
+          <option key={v} value={v}>
+            {t}
+          </option>
+        );
+      })}
+    </select>
   );
 }

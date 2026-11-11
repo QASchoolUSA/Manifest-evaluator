@@ -1,8 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import type { Lot } from "@/lib/db/schema";
 import { computeDeal, formatMoney, formatPct } from "@/lib/deal/math";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 export function DealPanel({ lot }: { lot: Lot }) {
   const [bidPrice, setBidPrice] = useState(String(lot.bidPrice || ""));
@@ -34,7 +46,7 @@ export function DealPanel({ lot }: { lot: Lot }) {
   async function save() {
     setSaving(true);
     try {
-      await fetch(`/api/lots/${lot.id}`, {
+      const res = await fetch(`/api/lots/${lot.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -44,6 +56,10 @@ export function DealPanel({ lot }: { lot: Lot }) {
           salvagePct: Number(salvage) || 0,
         }),
       });
+      if (!res.ok) throw new Error("Save failed");
+      toast.success("Bid inputs saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
     }
@@ -53,86 +69,73 @@ export function DealPanel({ lot }: { lot: Lot }) {
     lot.itemCount > 0 ? (lot.pricedItemCount / lot.itemCount) * 100 : 0;
 
   return (
-    <section className="surface rounded-2xl p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-steel">
-            Deal math
-          </h2>
-          <p className="text-sm text-muted">
+          <CardTitle>Deal math</CardTitle>
+          <CardDescription>
             Landed cost vs estimated resale for this lot only.
-          </p>
+          </CardDescription>
         </div>
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="rounded-lg bg-steel px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-        >
+        <Button onClick={save} disabled={saving} size="sm">
           {saving ? "Saving…" : "Save bid inputs"}
-        </button>
-      </div>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="text-sm">
-          <span className="text-muted">Expected bid</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 mono-num"
-            value={bidPrice}
-            onChange={(e) => setBidPrice(e.target.value)}
-            inputMode="decimal"
-            placeholder="0"
-          />
-        </label>
-        <label className="text-sm">
-          <span className="text-muted">Buyer premium %</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 mono-num"
-            value={premium}
-            onChange={(e) => setPremium(e.target.value)}
-            inputMode="decimal"
-          />
-        </label>
-        <label className="text-sm">
-          <span className="text-muted">Freight</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 mono-num"
-            value={freight}
-            onChange={(e) => setFreight(e.target.value)}
-            inputMode="decimal"
-            placeholder="0"
-          />
-        </label>
-        <label className="text-sm">
-          <span className="text-muted">Salvage / unsellable %</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 mono-num"
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="Expected bid" value={bidPrice} onChange={setBidPrice} />
+          <Field label="Buyer premium %" value={premium} onChange={setPremium} />
+          <Field label="Freight" value={freight} onChange={setFreight} />
+          <Field
+            label="Salvage / unsellable %"
             value={salvage}
-            onChange={(e) => setSalvage(e.target.value)}
-            inputMode="decimal"
+            onChange={setSalvage}
           />
-        </label>
-      </div>
+        </div>
 
-      <dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Manifest retail" value={formatMoney(lot.manifestRetail)} />
-        <Stat
-          label={`Est. market (${formatPct(coverage)} priced)`}
-          value={formatMoney(lot.estimatedMarket)}
-          accent
-        />
-        <Stat label="Landed cost" value={formatMoney(deal.landedCost)} />
-        <Stat
-          label="Est. profit"
-          value={formatMoney(deal.profit)}
-          tone={deal.profit >= 0 ? "good" : "bad"}
-        />
-        <Stat label="ROI" value={formatPct(deal.roiPct)} />
-        <Stat label="Market / retail" value={formatPct(deal.retailPct)} />
-        <Stat label="Break-even bid" value={formatMoney(deal.breakEvenBid)} />
-        <Stat label="Adjusted market" value={formatMoney(deal.adjustedMarket)} />
-      </dl>
-    </section>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat label="Manifest retail" value={formatMoney(lot.manifestRetail)} />
+          <Stat
+            label={`Est. market (${formatPct(coverage)} priced)`}
+            value={formatMoney(lot.estimatedMarket)}
+            accent
+          />
+          <Stat label="Landed cost" value={formatMoney(deal.landedCost)} />
+          <Stat
+            label="Est. profit"
+            value={formatMoney(deal.profit)}
+            tone={deal.profit >= 0 ? "good" : "bad"}
+          />
+          <Stat label="ROI" value={formatPct(deal.roiPct)} />
+          <Stat label="Market / retail" value={formatPct(deal.retailPct)} />
+          <Stat label="Break-even bid" value={formatMoney(deal.breakEvenBid)} />
+          <Stat label="Adjusted market" value={formatMoney(deal.adjustedMarket)} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-muted-foreground">{label}</Label>
+      <Input
+        className="mono-num"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        inputMode="decimal"
+        placeholder="0"
+      />
+    </div>
   );
 }
 
@@ -147,18 +150,19 @@ function Stat({
   accent?: boolean;
   tone?: "good" | "bad";
 }) {
-  const color =
-    tone === "good"
-      ? "text-good"
-      : tone === "bad"
-        ? "text-bad"
-        : accent
-          ? "text-accent"
-          : "text-steel";
   return (
-    <div className="rounded-xl border border-line/80 bg-white/70 px-3 py-3">
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className={`mono-num mt-1 text-lg font-bold ${color}`}>{value}</dd>
+    <div className="rounded-xl border bg-card px-3 py-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          "mono-num mt-1 text-lg font-semibold",
+          tone === "good" && "text-success",
+          tone === "bad" && "text-destructive",
+          accent && !tone && "text-primary",
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }

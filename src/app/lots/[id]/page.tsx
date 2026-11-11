@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 import { DealPanel } from "@/components/DealPanel";
 import { EnrichControls } from "@/components/EnrichControls";
 import { ItemsTable } from "@/components/ItemsTable";
 import { DeleteLotButton } from "@/components/DeleteLotButton";
 import { formatMoney } from "@/lib/deal/math";
 import { getLot, getLotItems } from "@/lib/lots/service";
+import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
 
@@ -22,23 +24,26 @@ export default async function LotDetailPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted">
-        <Link href="/" className="hover:text-accent">
+      <div className="mb-4 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+        <Link href="/" className="hover:text-foreground">
           Lots
         </Link>
-        <span>/</span>
-        <span className="text-steel">Lot detail</span>
+        <ChevronRight className="size-3.5" />
+        <span className="text-foreground">Lot detail</span>
       </div>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-            Separate pallet · {lot.lotId}
-          </p>
-          <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight text-steel">
+        <div className="min-w-0 max-w-3xl space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">Separate pallet</Badge>
+            <Badge variant="outline" className="font-mono font-normal">
+              {lot.lotId}
+            </Badge>
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             {lot.title}
           </h1>
-          <p className="mt-2 text-sm text-muted">
+          <p className="text-sm text-muted-foreground">
             {lot.itemCount} lines · {lot.totalQty} units · manifest{" "}
             {formatMoney(lot.manifestRetail)} · est. market{" "}
             {formatMoney(lot.estimatedMarket)}
