@@ -52,6 +52,7 @@ export const items = sqliteTable(
     ebayUrl: text("ebay_url"),
     rockautoUrl: text("rockauto_url"),
     amazonUrl: text("amazon_url"),
+    advanceUrl: text("advance_url"),
   },
   (table) => [
     index("items_lot_id_idx").on(table.lotId),
@@ -73,6 +74,7 @@ export const priceCache = sqliteTable("price_cache", {
   ebayUrl: text("ebay_url"),
   rockautoUrl: text("rockauto_url"),
   amazonUrl: text("amazon_url"),
+  advanceUrl: text("advance_url"),
   fetchedAt: text("fetched_at").notNull(),
   expiresAt: text("expires_at").notNull(),
   rawJson: text("raw_json"),

@@ -8,6 +8,7 @@ export type PriceResult = {
   ebayUrl: string;
   rockautoUrl: string;
   amazonUrl: string;
+  advanceUrl: string;
 };
 
 export type PriceLookupInput = {
@@ -15,4 +16,5 @@ export type PriceLookupInput = {
   brand: string;
   partNumber: string;
   description: string;
+  vendorPrefix?: string;
 };

@@ -68,7 +68,8 @@ async function ensureSchema(client: Client) {
       price_status TEXT NOT NULL DEFAULT 'pending',
       ebay_url TEXT,
       rockauto_url TEXT,
-      amazon_url TEXT
+      amazon_url TEXT,
+      advance_url TEXT
     )`,
       `CREATE INDEX IF NOT EXISTS items_lot_id_idx ON items(lot_id)`,
       `CREATE INDEX IF NOT EXISTS items_item_number_idx ON items(item_number)`,
@@ -86,6 +87,7 @@ async function ensureSchema(client: Client) {
       ebay_url TEXT,
       rockauto_url TEXT,
       amazon_url TEXT,
+      advance_url TEXT,
       fetched_at TEXT NOT NULL,
       expires_at TEXT NOT NULL,
       raw_json TEXT
@@ -105,6 +107,18 @@ async function ensureSchema(client: Client) {
     ],
     "write",
   );
+
+  // Soft-migrate existing DBs created before advance_url existed.
+  for (const stmt of [
+    `ALTER TABLE items ADD COLUMN advance_url TEXT`,
+    `ALTER TABLE price_cache ADD COLUMN advance_url TEXT`,
+  ]) {
+    try {
+      await client.execute(stmt);
+    } catch {
+      // column already present
+    }
+  }
 }
 
 function createClientInstance() {

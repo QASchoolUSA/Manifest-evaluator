@@ -14,6 +14,12 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { ExternalLink, Search } from "lucide-react";
 import type { Item } from "@/lib/db/schema";
 import { formatMoney } from "@/lib/deal/math";
+import {
+  advanceSearchUrl,
+  amazonSearchUrl,
+  ebaySearchUrl,
+  rockautoSearchUrl,
+} from "@/lib/pricing/urls";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -176,41 +182,62 @@ export function ItemsTable({ items }: Props) {
       {
         id: "links",
         header: "Check",
-        cell: ({ row }) => (
-          <div className="flex flex-col gap-1 text-xs">
-            {row.original.ebayUrl && (
+        cell: ({ row }) => {
+          const item = row.original;
+          // Prefer a resolved Advance product page; otherwise their live search.
+          const advanceHref =
+            item.advanceUrl && item.advanceUrl.includes("/p/")
+              ? item.advanceUrl
+              : advanceSearchUrl(item.partNumber);
+          const ebayHref = ebaySearchUrl(
+            item.brand,
+            item.partNumber,
+            item.description,
+          );
+          const rockHref = rockautoSearchUrl(item.brand, item.partNumber);
+          const amazonHref = amazonSearchUrl(
+            item.brand,
+            item.partNumber,
+            item.description,
+          );
+          return (
+            <div className="flex flex-col gap-1 text-xs">
+              <a
+                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                href={advanceHref}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Advance <ExternalLink className="size-3" />
+              </a>
               <a
                 className="inline-flex items-center gap-1 text-primary hover:underline"
-                href={row.original.ebayUrl}
+                href={ebayHref}
                 target="_blank"
                 rel="noreferrer"
               >
                 eBay <ExternalLink className="size-3" />
               </a>
-            )}
-            {row.original.rockautoUrl && (
               <a
                 className="inline-flex items-center gap-1 text-primary hover:underline"
-                href={row.original.rockautoUrl}
+                href={rockHref}
                 target="_blank"
                 rel="noreferrer"
               >
                 RockAuto <ExternalLink className="size-3" />
               </a>
-            )}
-            {row.original.amazonUrl && (
               <a
                 className="inline-flex items-center gap-1 text-primary hover:underline"
-                href={row.original.amazonUrl}
+                href={amazonHref}
                 target="_blank"
                 rel="noreferrer"
               >
                 Amazon <ExternalLink className="size-3" />
               </a>
-            )}
-          </div>
-        ),
-        size: 100,
+            </div>
+          );
+        },
+        size: 110,
       },
     ],
     [],

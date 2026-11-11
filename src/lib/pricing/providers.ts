@@ -1,3 +1,4 @@
+import { lookupAdvanceProduct } from "./advance";
 import type { PriceLookupInput, PriceResult } from "./types";
 import { amazonSearchUrl, ebaySearchUrl, rockautoSearchUrl } from "./urls";
 
@@ -236,6 +237,14 @@ export async function lookupMarketPrice(
   const rockautoUrl = rockautoSearchUrl(input.brand, input.partNumber);
   const amazonUrl = amazonSearchUrl(input.brand, input.partNumber, input.description);
 
+  // Resolve Advance Auto product page when their API allows; else search URL.
+  const advance = await lookupAdvanceProduct({
+    partNumber: input.partNumber,
+    brand: input.brand,
+    vendorPrefix: input.vendorPrefix,
+  });
+  const advanceUrl = advance.url;
+
   let chosen: Partial<PriceResult> | null = null;
 
   // 1) eBay Finding API (sold) when App ID is present and not in cooldown
@@ -265,5 +274,6 @@ export async function lookupMarketPrice(
     ebayUrl,
     rockautoUrl,
     amazonUrl,
+    advanceUrl,
   };
 }

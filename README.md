@@ -1,6 +1,6 @@
 # Manifest Evaluator
 
-Public web app to import Advance Auto **B-Stock CSV manifests** as **separate lots**, inspect products and vehicle fitment, and estimate real market value (eBay sold → RockAuto → Amazon, with retail heuristics as fallback).
+Public web app to import Advance Auto **B-Stock CSV manifests** as **separate lots**, inspect products and vehicle fitment, and estimate real market value (eBay sold → RockAuto → Amazon, with retail heuristics as fallback). Each SKU links to Advance Auto search (or a direct product page when resolvable), plus cleaned eBay / RockAuto / Amazon checks.
 
 **No login.** Anyone can open the site, see previously uploaded lots, and open each lot for the full evaluation. Uploads are shared and visible to everyone.
 

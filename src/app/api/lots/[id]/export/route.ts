@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { getLot, getLotItems } from "@/lib/lots/service";
+import {
+  advanceSearchUrl,
+  amazonSearchUrl,
+  ebaySearchUrl,
+  rockautoSearchUrl,
+} from "@/lib/pricing/urls";
 
 export const runtime = "nodejs";
 
@@ -34,6 +40,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     "Fitment Location",
     "Seller Category",
     "Condition",
+    "Advance URL",
     "eBay URL",
     "RockAuto URL",
     "Amazon URL",
@@ -61,9 +68,12 @@ export async function GET(_req: Request, ctx: Ctx) {
         item.fitmentLocation ?? "",
         item.sellerCategory,
         item.condition,
-        item.ebayUrl ?? "",
-        item.rockautoUrl ?? "",
-        item.amazonUrl ?? "",
+        item.advanceUrl && item.advanceUrl.includes("/p/")
+          ? item.advanceUrl
+          : advanceSearchUrl(item.partNumber),
+        ebaySearchUrl(item.brand, item.partNumber, item.description),
+        rockautoSearchUrl(item.brand, item.partNumber),
+        amazonSearchUrl(item.brand, item.partNumber, item.description),
       ]
         .map(csvEscape)
         .join(","),
