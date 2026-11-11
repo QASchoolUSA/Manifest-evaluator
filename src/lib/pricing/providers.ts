@@ -33,7 +33,7 @@ type FetchResult = {
 
 async function fetchResponse(
   url: string,
-  timeoutMs = 8000,
+  timeoutMs = 3500,
 ): Promise<FetchResult> {
   try {
     const controller = new AbortController();
@@ -55,7 +55,7 @@ async function fetchResponse(
   }
 }
 
-async function fetchText(url: string, timeoutMs = 8000): Promise<string | null> {
+async function fetchText(url: string, timeoutMs = 3500): Promise<string | null> {
   const res = await fetchResponse(url, timeoutMs);
   return res.ok ? res.text : null;
 }

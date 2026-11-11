@@ -24,9 +24,12 @@ export function EnrichControls({
     const res = await fetch(`/api/lots/${lotId}/enrich`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ limit: 15 }),
+      body: JSON.stringify({ limit: 4 }),
     });
-    const data = await res.json();
+    if (res.status === 504 || res.status === 503) {
+      throw new Error("Enrichment timed out — retry; batches are smaller now");
+    }
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "Enrichment failed");
     return data as { enriched: number; remaining: number };
   }, [lotId]);

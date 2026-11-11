@@ -13,8 +13,9 @@ export async function POST(req: Request, ctx: Ctx) {
   }
   const body = await req.json().catch(() => ({}));
   const result = await enrichLot(id, {
-    limit: body.limit ?? 15,
+    limit: body.limit ?? 4,
     force: Boolean(body.force),
+    timeBudgetMs: 45_000,
   });
   return NextResponse.json(result);
 }

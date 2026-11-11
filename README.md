@@ -30,7 +30,7 @@ Without Turso env vars, the app uses a local libSQL file at `data/manifest-evalu
    - `TURSO_DATABASE_URL` = `libsql://…`
    - `TURSO_AUTH_TOKEN` = your token
    - `EBAY_APP_ID` (recommended) — sold comps via Finding API; free-tier limits fall back to HTML/RockAuto/Amazon/heuristic
-   - `SERPER_API_KEY` (recommended) — resolves real Advance Auto `/p/` product URLs + shelf prices (free tier at [serper.dev](https://serper.dev))
+   - `SERPER_API_KEY` (**required for Advance product pages**) — free key at [serper.dev](https://serper.dev). Without it, Advance links fall back to Google site-search. Enrich uses small batches + a 45s budget to avoid Vercel 60s timeouts.
 
 4. Deploy. Schema tables are created automatically on first request.
 5. Open the site — load samples or upload manifests. Lots persist in Turso and are public.

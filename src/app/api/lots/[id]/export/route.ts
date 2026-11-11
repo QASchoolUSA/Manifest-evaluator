@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getLot, getLotItems } from "@/lib/lots/service";
+import { advanceGoogleFindUrl } from "@/lib/pricing/advance";
 import {
-  advanceSearchUrl,
   amazonSearchUrl,
   ebaySearchUrl,
   rockautoSearchUrl,
@@ -77,7 +77,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         advanceResolved ? "yes" : "no",
         advanceResolved && item.advanceUrl
           ? item.advanceUrl
-          : advanceSearchUrl(item.partNumber),
+          : advanceGoogleFindUrl(item.partNumber, item.brand),
         ebaySearchUrl(item.brand, item.partNumber, item.description),
         rockautoSearchUrl(item.brand, item.partNumber),
         amazonSearchUrl(item.brand, item.partNumber, item.description),

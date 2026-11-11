@@ -15,11 +15,20 @@ import { ExternalLink, Search } from "lucide-react";
 import type { Item } from "@/lib/db/schema";
 import { formatMoney } from "@/lib/deal/math";
 import {
-  advanceSearchUrl,
   amazonSearchUrl,
   ebaySearchUrl,
   rockautoSearchUrl,
 } from "@/lib/pricing/urls";
+
+function advanceGoHref(item: Item): string {
+  const params = new URLSearchParams({
+    part: item.partNumber,
+    brand: item.brand,
+    prefix: item.vendorPrefix,
+    item: item.itemNumber,
+  });
+  return `/api/advance/go?${params.toString()}`;
+}
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -196,9 +205,10 @@ export function ItemsTable({ items }: Props) {
           const resolved =
             Boolean(item.advanceResolved) ||
             Boolean(item.advanceUrl?.includes("/p/"));
-          const advanceHref = resolved
-            ? (item.advanceUrl ?? advanceSearchUrl(item.partNumber))
-            : advanceSearchUrl(item.partNumber);
+          // Click-through resolver redirects to /p/ when Serper/capi can find it.
+          const advanceHref = resolved && item.advanceUrl?.includes("/p/")
+            ? item.advanceUrl
+            : advanceGoHref(item);
           const ebayHref = ebaySearchUrl(
             item.brand,
             item.partNumber,
@@ -220,11 +230,10 @@ export function ItemsTable({ items }: Props) {
                 title={
                   resolved
                     ? "Advance Auto product page"
-                    : "Advance Auto search (product page not resolved yet)"
+                    : "Resolve Advance Auto product page"
                 }
               >
-                {resolved ? "Advance" : "Advance search"}{" "}
-                <ExternalLink className="size-3" />
+                Advance <ExternalLink className="size-3" />
               </a>
               <a
                 className="inline-flex items-center gap-1 text-primary hover:underline"

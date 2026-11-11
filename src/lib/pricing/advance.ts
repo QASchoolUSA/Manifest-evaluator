@@ -9,7 +9,7 @@ export type AdvanceLookupResult = {
   manufacturerCode: string | null;
   price: number | null;
   resolved: boolean;
-  source: "capi" | "serper" | "search";
+  source: "capi" | "serper" | "ddg" | "search";
 };
 
 type AdvanceProduct = {
@@ -30,13 +30,29 @@ type SerperOrganic = {
   snippet?: string;
 };
 
+/** Advance capi is blocked from most serverless IPs — skip after first failure. */
+let advanceCapiCooldownUntil = 0;
+
 function norm(s: string | null | undefined): string {
   return (s ?? "").trim().toUpperCase();
 }
 
-function unresolved(partNumber: string): AdvanceLookupResult {
+function partToken(partNumber: string): string {
+  return norm(partNumber).replace(/[^A-Z0-9]/g, "");
+}
+
+export function advanceGoogleFindUrl(partNumber: string, brand?: string): string {
+  const q = ["site:shop.advanceautoparts.com/p", partNumber, brand]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=en&gl=us`;
+}
+
+function unresolved(partNumber: string, brand?: string): AdvanceLookupResult {
+  // Prefer Google site-search over Advance SearchResults — it ranks the real /p/ page.
   return {
-    url: advanceSearchUrl(partNumber),
+    url: advanceGoogleFindUrl(partNumber, brand),
     productId: null,
     seoKeyword: null,
     partNumber: null,
@@ -66,13 +82,13 @@ function parsePriceFromText(text: string | null | undefined): number | null {
 }
 
 function pathContainsPart(url: string, partNumber: string): boolean {
-  const want = norm(partNumber).replace(/[^A-Z0-9]/g, "");
+  const want = partToken(partNumber);
   if (!want) return false;
   const path = url.split("?")[0].toUpperCase().replace(/[^A-Z0-9]/g, "");
   return path.includes(want);
 }
 
-function parseAdvanceProductUrl(url: string): {
+export function parseAdvanceProductUrl(url: string): {
   seoKeyword: string;
   productId: string;
 } | null {
@@ -81,7 +97,7 @@ function parseAdvanceProductUrl(url: string): {
     if (!u.hostname.includes("advanceautoparts.com")) return null;
     const m = u.pathname.match(/\/p\/([^/]+)\/(\d+)-P\/?$/i);
     if (!m) return null;
-    return { seoKeyword: m[1], productId: m[2] };
+    return { seoKeyword: decodeURIComponent(m[1]), productId: m[2] };
   } catch {
     return null;
   }
@@ -107,70 +123,94 @@ function preferProduct(
   );
 }
 
+function extractProductFromOrganic(
+  organic: SerperOrganic[],
+  partNumber: string,
+  brand?: string,
+  source: "serper" | "ddg" = "serper",
+): AdvanceLookupResult | null {
+  for (const row of organic) {
+    const link = row.link;
+    if (!link) continue;
+    const parsed = parseAdvanceProductUrl(link);
+    if (!parsed) continue;
+    if (!pathContainsPart(link, partNumber)) continue;
+
+    return {
+      url: advanceProductUrl(parsed.seoKeyword, parsed.productId),
+      productId: parsed.productId,
+      seoKeyword: parsed.seoKeyword,
+      partNumber,
+      manufacturerName: brand ?? null,
+      manufacturerCode: null,
+      price: parsePriceFromText(row.snippet) ?? parsePriceFromText(row.title),
+      resolved: true,
+      source,
+    };
+  }
+  return null;
+}
+
 async function lookupAdvanceCapi(input: {
   partNumber: string;
   brand?: string;
   vendorPrefix?: string;
 }): Promise<AdvanceLookupResult | null> {
-  const fallback = advanceSearchUrl(input.partNumber);
-  const terms = [
-    input.partNumber,
-    [input.brand, input.partNumber].filter(Boolean).join(" ").trim(),
-  ].filter((t, i, arr) => t && arr.indexOf(t) === i);
+  if (Date.now() < advanceCapiCooldownUntil) return null;
 
-  for (const term of terms) {
-    const endpoint =
-      `https://shop.advanceautoparts.com/capi/v56/search` +
-      `?order=BEST_MATCH&count=12` +
-      `&withoutVehicleForInterchangeableParts=true` +
-      `&page=1&offset=0&v2=true` +
-      `&term=${encodeURIComponent(term)}`;
+  const endpoint =
+    `https://shop.advanceautoparts.com/capi/v56/search` +
+    `?order=BEST_MATCH&count=8` +
+    `&withoutVehicleForInterchangeableParts=true` +
+    `&page=1&offset=0&v2=true` +
+    `&term=${encodeURIComponent(input.partNumber)}`;
 
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch(endpoint, {
-        signal: controller.signal,
-        headers: {
-          Accept: "application/json, text/plain, */*",
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Referer: fallback,
-          Origin: "https://shop.advanceautoparts.com",
-        },
-        cache: "no-store",
-      });
-      clearTimeout(timer);
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(endpoint, {
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Referer: advanceSearchUrl(input.partNumber),
+        Origin: "https://shop.advanceautoparts.com",
+      },
+      cache: "no-store",
+    });
+    clearTimeout(timer);
 
-      const contentType = res.headers.get("content-type") ?? "";
-      if (!res.ok || !contentType.includes("json")) continue;
-
-      const json = (await res.json()) as { products?: AdvanceProduct[] };
-      const preferred = preferProduct(
-        json.products ?? [],
-        input.partNumber,
-        input.brand,
-        input.vendorPrefix,
-      );
-      if (!preferred?.id || !preferred.seoKeyword) continue;
-
-      return {
-        url: advanceProductUrl(preferred.seoKeyword, preferred.id),
-        productId: preferred.id,
-        seoKeyword: preferred.seoKeyword,
-        partNumber: preferred.partNumber ?? null,
-        manufacturerName: preferred.manufacturerName ?? null,
-        manufacturerCode: preferred.manufacturerCode ?? null,
-        price: pickAdvancePrice(preferred),
-        resolved: true,
-        source: "capi",
-      };
-    } catch {
-      // try next term / fall through to Serper
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!res.ok || !contentType.includes("json")) {
+      advanceCapiCooldownUntil = Date.now() + 60 * 60_000;
+      return null;
     }
-  }
 
-  return null;
+    const json = (await res.json()) as { products?: AdvanceProduct[] };
+    const preferred = preferProduct(
+      json.products ?? [],
+      input.partNumber,
+      input.brand,
+      input.vendorPrefix,
+    );
+    if (!preferred?.id || !preferred.seoKeyword) return null;
+
+    return {
+      url: advanceProductUrl(preferred.seoKeyword, preferred.id),
+      productId: preferred.id,
+      seoKeyword: preferred.seoKeyword,
+      partNumber: preferred.partNumber ?? null,
+      manufacturerName: preferred.manufacturerName ?? null,
+      manufacturerCode: preferred.manufacturerCode ?? null,
+      price: pickAdvancePrice(preferred),
+      resolved: true,
+      source: "capi",
+    };
+  } catch {
+    advanceCapiCooldownUntil = Date.now() + 60 * 60_000;
+    return null;
+  }
 }
 
 async function serperSearch(query: string): Promise<SerperOrganic[]> {
@@ -178,7 +218,7 @@ async function serperSearch(query: string): Promise<SerperOrganic[]> {
   if (!apiKey) return [];
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const res = await fetch("https://google.serper.dev/search", {
       method: "POST",
@@ -189,7 +229,7 @@ async function serperSearch(query: string): Promise<SerperOrganic[]> {
       },
       body: JSON.stringify({
         q: query,
-        num: 8,
+        num: 5,
         gl: "us",
         hl: "en",
       }),
@@ -213,39 +253,67 @@ async function lookupAdvanceSerper(input: {
 
   const queries = [
     `site:shop.advanceautoparts.com/p ${input.partNumber} ${input.brand ?? ""}`.trim(),
-    `site:shop.advanceautoparts.com/p ${input.partNumber}`,
-  ].filter((q, i, arr) => arr.indexOf(q) === i);
+    `"${input.partNumber}" site:shop.advanceautoparts.com/p`,
+    `${input.brand ?? ""} ${input.partNumber} site:shop.advanceautoparts.com`.trim(),
+  ].filter((q, i, arr) => q && arr.indexOf(q) === i);
 
   for (const query of queries) {
     const organic = await serperSearch(query);
-    for (const row of organic) {
-      const link = row.link;
-      if (!link) continue;
-      const parsed = parseAdvanceProductUrl(link);
-      if (!parsed) continue;
-      if (!pathContainsPart(link, input.partNumber)) continue;
-
-      return {
-        url: advanceProductUrl(parsed.seoKeyword, parsed.productId),
-        productId: parsed.productId,
-        seoKeyword: parsed.seoKeyword,
-        partNumber: input.partNumber,
-        manufacturerName: input.brand ?? null,
-        manufacturerCode: null,
-        price:
-          parsePriceFromText(row.snippet) ?? parsePriceFromText(row.title),
-        resolved: true,
-        source: "serper",
-      };
-    }
+    const hit = extractProductFromOrganic(organic, input.partNumber, input.brand, "serper");
+    if (hit) return hit;
   }
 
   return null;
 }
 
 /**
+ * DuckDuckGo HTML occasionally works from some hosts; Node/Vercel usually gets a challenge.
+ * Keep as a cheap best-effort before falling back.
+ */
+async function lookupAdvanceDdg(input: {
+  partNumber: string;
+  brand?: string;
+}): Promise<AdvanceLookupResult | null> {
+  const query =
+    `site:shop.advanceautoparts.com/p ${input.partNumber} ${input.brand ?? ""}`.trim();
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      cache: "no-store",
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const html = await res.text();
+    const organic: SerperOrganic[] = [];
+    for (const m of html.matchAll(/uddg=([^&"]+)/g)) {
+      try {
+        const link = decodeURIComponent(m[1]);
+        if (link.includes("shop.advanceautoparts.com/p/")) {
+          organic.push({ link });
+        }
+      } catch {
+        // ignore bad encoding
+      }
+    }
+    return extractProductFromOrganic(organic, input.partNumber, input.brand, "ddg");
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Resolve an Advance Auto product page + shelf price.
- * Waterfall: native capi (often blocked) → Serper Google search → search URL.
+ * Waterfall: capi (fast-fail/circuit) → Serper → DuckDuckGo → Google site-search link.
  */
 export async function lookupAdvanceProduct(input: {
   partNumber: string;
@@ -258,5 +326,12 @@ export async function lookupAdvanceProduct(input: {
   const serper = await lookupAdvanceSerper(input);
   if (serper?.resolved) return serper;
 
-  return unresolved(input.partNumber);
+  const ddg = await lookupAdvanceDdg(input);
+  if (ddg?.resolved) return ddg;
+
+  return unresolved(input.partNumber, input.brand);
+}
+
+export function hasAdvanceSearchProvider(): boolean {
+  return Boolean(process.env.SERPER_API_KEY);
 }

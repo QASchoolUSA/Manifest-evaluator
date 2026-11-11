@@ -12,6 +12,7 @@ import {
 import { parseManifestCsv } from "@/lib/parser/manifest";
 import { lookupFitment } from "@/lib/fitment/lookup";
 import { lookupMarketPrice } from "@/lib/pricing/providers";
+import type { PriceResult } from "@/lib/pricing/types";
 import {
   advanceSearchUrl,
   amazonSearchUrl,
@@ -235,7 +236,7 @@ async function recomputeLotMarket(lotId: string) {
 
 export async function enrichLot(
   lotId: string,
-  opts: { limit?: number; force?: boolean } = {},
+  opts: { limit?: number; force?: boolean; timeBudgetMs?: number } = {},
 ): Promise<{ enriched: number; remaining: number }> {
   const db = await getDb();
   const lot = await getLot(lotId);
@@ -246,7 +247,9 @@ export async function enrichLot(
     (i) =>
       opts.force || i.priceStatus === "pending" || i.priceStatus === "error",
   );
-  const limit = opts.limit ?? 12;
+  // Keep batches small — Vercel hobby/pro caps request duration (~60s).
+  const limit = Math.min(opts.limit ?? 4, 6);
+  const deadline = Date.now() + (opts.timeBudgetMs ?? 45_000);
   const batch = pending.slice(0, limit);
 
   const seen = new Set<string>();
@@ -260,6 +263,8 @@ export async function enrichLot(
 
   let enriched = 0;
   for (const item of uniqueBatch) {
+    if (Date.now() >= deadline) break;
+
     const key = cacheKey(item.itemNumber);
     const existingRows = await db
       .select()
@@ -268,8 +273,11 @@ export async function enrichLot(
       .limit(1);
     const existing = existingRows[0];
 
-    let price =
-      existing && existing.expiresAt >= nowIso() && !opts.force
+    let price: PriceResult | null =
+      existing &&
+      existing.expiresAt >= nowIso() &&
+      !opts.force &&
+      existing.median != null
         ? {
             low: existing.low,
             median: existing.median,
@@ -443,10 +451,7 @@ export async function enrichLot(
     enriched += 1;
   }
 
-  const allLots = await listLots();
-  for (const l of allLots) {
-    await applyCacheToLot(l.id);
-  }
+  await recomputeLotMarket(lotId);
 
   const remaining = (await getLotItems(lotId)).filter(
     (i) => i.priceStatus === "pending" || i.priceStatus === "error",
